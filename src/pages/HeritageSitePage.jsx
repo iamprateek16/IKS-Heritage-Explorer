@@ -5,6 +5,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+
 import {
   ArrowLeft,
   ArrowRight,
@@ -13,29 +14,23 @@ import {
   Award,
   Clock,
   Compass,
-  QrCode,
   Share2,
   ChevronDown,
   ExternalLink,
-  Check,
 } from 'lucide-react'
 import { heritageSites } from '../data/heritage'
 import {
   getSiteBySlugOrId,
   getSitePath,
-  getFullDestinationUrl,
   getAllHeritageDestinations,
-  getPublicBaseUrl,
 } from '../utils/heritageRouting'
 import HeritageModelViewer from '../components/HeritageModelViewer'
-import MonumentQRCard from '../components/MonumentQRCard'
 import IndiaHeritageMap from '../components/IndiaHeritageMap'
 
 export default function HeritageSitePage() {
   const { slug } = useParams()
   const [site, setSite] = useState(null)
   const [allSites, setAllSites] = useState([])
-  const [showQRModal, setShowQRModal] = useState(false)
   const [siteDropdownOpen, setSiteDropdownOpen] = useState(false)
 
   // Resolve site
@@ -88,7 +83,16 @@ export default function HeritageSitePage() {
   const prevSite =
     allSites[(currentIndex - 1 + allSites.length) % allSites.length]
   const nextSite = allSites[(currentIndex + 1) % allSites.length]
-  const fullPublicUrl = getFullDestinationUrl(site)
+
+  const handleShare = async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: site.name, text: site.description, url: window.location.href })
+      } catch { /* user cancelled */ }
+    } else {
+      try { await navigator.clipboard.writeText(window.location.href) } catch { /* noop */ }
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#0A0A0A] text-white selection:bg-[#C4A882] selection:text-black">
@@ -154,25 +158,17 @@ export default function HeritageSitePage() {
             </div>
           </div>
 
-          {/* Quick Actions: QR code & Hub */}
+          {/* Visitor share action */}
           <div className="flex items-center gap-3">
             <button
-              onClick={() => setShowQRModal(true)}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-[#C4A882]/10 hover:bg-[#C4A882]/20 text-[#C4A882] border border-[#C4A882]/30 rounded text-xs transition-colors"
+              onClick={handleShare}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 rounded text-xs transition-colors"
               style={{ fontFamily: 'var(--font-mono)' }}
-            >
-              <QrCode size={13} />
-              <span>ON-SITE QR</span>
-            </button>
-
-            <Link
-              to="/qr-hub"
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/80 hover:text-white border border-white/10 rounded text-xs transition-colors no-underline"
-              style={{ fontFamily: 'var(--font-mono)' }}
+              title="Share this monument"
             >
               <Share2 size={13} />
-              <span className="hidden sm:inline">QR HUB</span>
-            </Link>
+              <span className="hidden sm:inline">SHARE</span>
+            </button>
           </div>
         </div>
       </header>
@@ -294,76 +290,7 @@ export default function HeritageSitePage() {
         </div>
       </section>
 
-      {/* ── On-Site QR Access & Physical Placard Section ── */}
-      <section id="qr-section" className="py-16 md:py-20 px-6 md:px-12 bg-[#0A0A0A] border-b border-white/10">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          <div className="lg:col-span-7">
-            <div
-              className="flex items-center gap-2 text-[10px] tracking-[0.25em] text-[#C4A882] mb-3 uppercase"
-              style={{ fontFamily: 'var(--font-mono)' }}
-            >
-              <QrCode size={12} />
-              <span>HERITAGE QR NAVIGATION SPECIFICATION</span>
-            </div>
-            <h2 className="text-2xl md:text-3xl font-semibold text-white tracking-tight mb-4">
-              Physical Museum Placard & On-Site Access
-            </h2>
-            <p className="text-white/60 text-sm leading-relaxed mb-6">
-              This unique QR code connects physical on-site visitors, museum placards, and tourist guideboards
-              directly to this dedicated digital twin page.
-            </p>
 
-            <div className="space-y-3 mb-8">
-              <div className="flex items-start gap-3 p-3.5 bg-white/5 border border-white/10 rounded-lg">
-                <div className="p-1.5 bg-[#C4A882]/10 rounded text-[#C4A882] mt-0.5">
-                  <Check size={14} />
-                </div>
-                <div>
-                  <div className="text-xs font-medium text-white">Full Public Destination URL</div>
-                  <div className="text-[11px] text-white/50 font-mono break-all mt-0.5">
-                    {fullPublicUrl}
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-start gap-3 p-3.5 bg-white/5 border border-white/10 rounded-lg">
-                <div className="p-1.5 bg-[#C4A882]/10 rounded text-[#C4A882] mt-0.5">
-                  <Check size={14} />
-                </div>
-                <div>
-                  <div className="text-xs font-medium text-white">No Localhost Reliance</div>
-                  <p className="text-[11px] text-white/50 mt-0.5">
-                    Configured with public production routing ({getPublicBaseUrl()}) so codes remain valid on smartphones and print placards.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap gap-4">
-              <button
-                onClick={() => setShowQRModal(true)}
-                className="px-5 py-2.5 bg-[#C4A882] hover:bg-[#d6b993] text-black font-semibold text-xs tracking-wider rounded transition-colors"
-                style={{ fontFamily: 'var(--font-mono)' }}
-              >
-                OPEN QR PLACARD
-              </button>
-
-              <Link
-                to="/qr-hub"
-                className="px-5 py-2.5 bg-white/5 hover:bg-white/10 text-white border border-white/10 text-xs tracking-wider rounded transition-colors no-underline flex items-center gap-2"
-                style={{ fontFamily: 'var(--font-mono)' }}
-              >
-                <span>VIEW ALL 8 SITE CODES</span>
-                <ArrowRight size={13} />
-              </Link>
-            </div>
-          </div>
-
-          <div className="lg:col-span-5 flex justify-center">
-            <MonumentQRCard site={site} variant="placard" />
-          </div>
-        </div>
-      </section>
 
       {/* ── Deep History & Architecture (IKS Content) ── */}
       <section className="py-20 md:py-28 px-6 md:px-12 bg-[#0E0E0E] border-b border-white/10">
@@ -518,10 +445,10 @@ export default function HeritageSitePage() {
           </Link>
 
           <Link
-            to="/qr-hub"
+            to="/"
             className="hidden sm:inline-flex px-4 py-2 bg-white/5 hover:bg-white/10 text-white/70 hover:text-white border border-white/10 rounded text-xs transition-colors font-mono no-underline"
           >
-            VIEW ALL 8 PLACARDS
+            ALL MONUMENTS
           </Link>
 
           <Link
@@ -541,27 +468,7 @@ export default function HeritageSitePage() {
         </div>
       </nav>
 
-      {/* ── Modal for On-Site QR Placard ── */}
-      <AnimatePresence>
-        {showQRModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative max-w-md w-full"
-            >
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="absolute -top-10 right-0 text-white/60 hover:text-white text-xs font-mono"
-              >
-                CLOSE [✕]
-              </button>
-              <MonumentQRCard site={site} variant="card" />
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+
     </div>
   )
 }
